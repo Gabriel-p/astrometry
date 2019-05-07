@@ -5,6 +5,7 @@ from os import makedirs
 from os import listdir
 from os.path import isfile, join
 
+from astropy.io import ascii
 from astropy.io import fits
 from astropy.table import Table
 from astropy.table import MaskedColumn
@@ -23,7 +24,7 @@ def main():
     Generated from the 'apass.py' script in the 'photpy' repo.
 
     Assumes that all input files have column headers in the format:
-    id x y V eV BV eBV UB eUB VI eVI
+    ID x y V eV BV eBV UB eUB VI eVI
     """
 
     nanvals = ('99.999', '1000.000', '1000')
@@ -55,7 +56,7 @@ def main():
 
         makePlot(x_p, y_p, ra, dec, Vmag, out_name)
 
-        sys.exit()
+        # sys.exit()
 
 
 def get_files():
@@ -90,15 +91,15 @@ def get_files():
     return cl_files
 
 
-def photRead(final_phot, nanvals):
+def photRead(final_phot, nanvals, id_col='ID'):
     """
     Select a file with photometry to read and compare with APASS.
     """
     # Final calibrated photometry
-    nv = [(_, np.nan) for _ in nanvals]
-    phot = Table.read(final_phot, fill_values=nv, format="ascii")
-
-    # phot = ascii.read(final_phot, fill_values=('99.999', np.nan))
+    fill_msk = [(_, np.nan) for _ in nanvals]
+    phot = Table.read(
+        final_phot, fill_values=fill_msk, format="ascii",
+        converters={id_col: [ascii.convert_numpy(np.str)]})
 
     x_p, y_p, Vmag = phot['x'], phot['y'], phot['V']
 
