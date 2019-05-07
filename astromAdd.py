@@ -11,6 +11,7 @@ from astropy.table import MaskedColumn
 
 import numpy as np
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -36,7 +37,7 @@ def main():
 
         print("\nProcessing: {}".format(clust_file.split('/')[1][:-4]))
         # Read cluster photometry.
-        phot, x_p, y_p = photRead(clust_file, nanvals)
+        phot, x_p, y_p, Vmag = photRead(clust_file, nanvals)
 
         # Read APASS data and astrometry.net correlated coordinates.
         cr_m_data = astronetRead(clust_file[:-4] + '_corr.fits')
@@ -51,6 +52,10 @@ def main():
         # Write to final file
         out_name = clust_file.replace('input', 'output')
         phot.write(out_name, format='csv', overwrite=True)
+
+        makePlot(x_p, y_p, ra, dec, Vmag, out_name)
+
+        sys.exit()
 
 
 def get_files():
@@ -95,14 +100,12 @@ def photRead(final_phot, nanvals):
 
     # phot = ascii.read(final_phot, fill_values=('99.999', np.nan))
 
-    x_p, y_p, = phot['x'], phot['y']
-    # v_p, bv_p  = phot['V'], phot['BV']
-    # b_p = bv_p + v_p
+    x_p, y_p, Vmag = phot['x'], phot['y'], phot['V']
 
     # Remove meta data to avoid https://github.com/astropy/astropy/issues/7357
     phot.meta = {}
 
-    return phot, x_p, y_p
+    return phot, x_p, y_p, Vmag
 
 
 def astronetRead(astro_cross):
@@ -117,30 +120,125 @@ def astronetRead(astro_cross):
     return cr_m_data
 
 
-def func(X, a, b, c):
+def transf2(x_p, y_p, ra, dec, x, y):
+    """
+    This is a more complicated transformation that uses tan intermediate step
+    transforming to the standard system (X,Y). Sources:
+
+    https://web.archive.org/web/20090510004846/http://gtn.sonoma.edu/data_reduction/astrometry.php
+    http://www.astro.utoronto.ca/~astrolab/files/Example_Lab_Report.pdf
+
+    As far as I could tell, there are no visible benefits from using this
+    transformations instead of simply transforming from (x,y) to (ra,dec).
+    """
+    def standardCoords(ra_rad, dec_rad, ra0, dec0):
+        """
+        """
+        X = (np.cos(dec_rad) * np.sin(ra_rad - ra0)) /\
+            (np.cos(dec0) * np.cos(dec_rad) * np.cos(ra_rad - ra0) +
+                np.sin(dec_rad) * np.sin(dec0))
+        Y = (np.cos(dec0) * np.sin(dec_rad) - np.cos(dec_rad) * np.sin(dec0) *
+             np.cos(ra_rad - ra0)) /\
+            (np.sin(dec0) * np.sin(dec_rad) + np.cos(dec_rad) * np.cos(dec0) *
+             np.cos(ra_rad - ra0))
+        return X, Y
+
+    def radecCoords(x_X, y_Y, ra_rad, dec_rad, ra0, dec0):
+        """
+        """
+        ra = ra0 + np.arctan(x_X / (np.cos(dec0) - y_Y * np.sin(dec0)))
+        dec = np.arcsin((np.sin(dec0) + y_Y * np.cos(dec0)) /
+                        np.sqrt(1 + x_X**2 + y_Y**2))
+        return ra, dec
+
+    ra_rad, dec_rad = np.deg2rad(ra), np.deg2rad(dec)
+    ra0, dec0 = (max(ra_rad) + min(ra_rad)) / 2.,\
+        (max(dec_rad) + min(dec_rad)) / 2.
+
+    # Transform celestial (ra,dec) to standard coordinates
+    X, Y = standardCoords(ra_rad, dec_rad, ra0, dec0)
+
+    # Find transformation from (x,y) to (X,Y)
+    p0 = (0., 0., 0., 0., 0., 0.)
+    x2X = curve_fit(func, (x, y), X, p0)[0]
+    y2Y = curve_fit(func, (x, y), Y, p0)[0]
+
+    # Transform pixel (x,y) coordinates into the standard (X,Y) system
+    x_X = func((x_p, y_p), *x2X)
+    y_Y = func((x_p, y_p), *y2Y)
+
+    # Finally, convert from the standard system to (ra, dec)
+    ra, dec = radecCoords(x_X, y_Y, ra_rad, dec_rad, ra0, dec0)
+
+    return np.rad2deg(ra), np.rad2deg(dec)
+
+
+def func(X, a, b, c, d, e, f):
     x, y = X
-    return a * x + b + c * y
+    return a + b * x + c * y + d * x * y + e * x ** 2 + f * y ** 2
 
 
 def px2Eq(x_p, y_p, cr_m_data):
     """
     Transform pixels to (ra, dec) using the correlated astrometry.net file.
     """
-    x0, y0 = cr_m_data['field_ra'], cr_m_data['field_dec']
-    x1, y1 = cr_m_data['field_x'], cr_m_data['field_y']
-    p0 = (0., 100., 0.)
-    x2ra = curve_fit(func, (x1, y1), x0, p0)[0]
-    y2de = curve_fit(func, (y1, x1), y0, p0)[0]
+    ra, dec = cr_m_data['field_ra'], cr_m_data['field_dec']
+    x, y = cr_m_data['field_x'], cr_m_data['field_y']
 
-    print("ra  = {:.5f} * x + {:.5f} + {:.7f} * y".format(*x2ra))
-    print("dec = {:.5f} * y + {:.5f} + {:.7f} * x".format(*y2de))
-    ra = x2ra[0] * x_p + x2ra[1] + x2ra[2] * y_p
-    dec = y2de[0] * y_p + y2de[1] + y2de[2] * x_p
+    # centx, centy = (max(x) + min(x)) / 2., (max(y) + min(y)) / 2.
+    # Q1 = (centx <= x) & (centy <= y)
+    # Q2 = (x < centx) & (centy <= y)
+    # Q3 = (x < centx) & (y < centy)
+    # Q4 = (centx <= x) & (y < centy)
+    # for msk in (Q1, Q2, Q3, Q4):
+
+    # Find transformation from (x,y) to (ra,dec)
+    p0 = (100., 0., 0., 0., 0., 0.)
+    x2ra = curve_fit(func, (x, y), ra, p0)[0]
+    y2de = curve_fit(func, (x, y), dec, p0)[0]
+
+    print(("X  = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy +"
+           " {:.7f} * x^2 + {:.7f} * y^2 +").format(*x2ra))
+    print(("Y = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy + "
+           "{:.7f} * x^2 + {:.7f} * y^2 +").format(*y2de))
+
+    # Transform pixel (x,y) coordinates into the (ra,dec) system
+    ra = func((x_p, y_p), *x2ra)
+    dec = func((x_p, y_p), *y2de)
 
     ra = MaskedColumn(ra, name='ra')
     dec = MaskedColumn(dec, name='dec')
 
     return ra, dec
+
+
+def star_size(mag, N=None, min_m=None):
+    '''
+    Convert magnitudes into intensities and define sizes of stars in
+    finding chart.
+    '''
+    # Scale factor.
+    if N is None:
+        N = len(mag)
+    if min_m is None:
+        min_m = np.nanmin(mag)
+        # print("min mag used: {}".format(min_m))
+    factor = 500. * (1 - 1 / (1 + 150 / N ** 0.85))
+    return 0.1 + factor * 10 ** ((np.array(mag) - min_m) / -2.5)
+
+
+def makePlot(x_p, y_p, ra, dec, Vmag, out_name):
+    plt.figure(figsize=(16, 8))
+    plt.subplot(121)
+    plt.scatter(x_p, y_p, s=star_size(Vmag))
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.subplot(122)
+    plt.scatter(-ra, dec, s=star_size(Vmag))
+    plt.xlabel(r'$\alpha$')
+    plt.ylabel(r'$\delta$')
+    plt.savefig(out_name[:-4] + '.png', dpi=150)
+    plt.close()
 
 
 if __name__ == '__main__':
