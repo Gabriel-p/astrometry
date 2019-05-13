@@ -101,6 +101,10 @@ def photRead(final_phot, nanvals, id_col='ID'):
         final_phot, fill_values=fill_msk, format="ascii",
         converters={id_col: [ascii.convert_numpy(np.str)]})
 
+    # Mask stars with no valid V magnitude.
+    Vmsk = ~phot['V']._mask
+    phot = phot[Vmsk]
+
     x_p, y_p, Vmag = phot['x'], phot['y'], phot['V']
 
     # Remove meta data to avoid https://github.com/astropy/astropy/issues/7357
