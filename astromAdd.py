@@ -27,7 +27,7 @@ def main():
     ID x y V eV BV eBV UB eUB VI eVI
     """
 
-    nanvals = ('99.999', '1000.000', '1000')
+    nanvals = ('99.999', '1000.000', '1000', 'INDEF')
 
     # Process all files inside 'input/' folder.
     cl_files = get_files()
