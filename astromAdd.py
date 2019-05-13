@@ -102,8 +102,11 @@ def photRead(final_phot, nanvals, id_col='ID'):
         converters={id_col: [ascii.convert_numpy(np.str)]})
 
     # Mask stars with no valid V magnitude.
-    Vmsk = ~phot['V']._mask
-    phot = phot[Vmsk]
+    try:
+        Vmsk = ~phot['V']._mask
+        phot = phot[Vmsk]
+    except AttributeError:
+        pass
 
     x_p, y_p, Vmag = phot['x'], phot['y'], phot['V']
 
