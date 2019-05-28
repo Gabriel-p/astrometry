@@ -24,7 +24,11 @@ def main():
     Generated from the 'apass.py' script in the 'photpy' repo.
 
     Assumes that all input files have column headers in the format:
-    ID x y V eV BV eBV UB eUB VI eVI
+    ID x y V .....
+
+    It can also work with a list of stars manually cross-matched and stored
+    in a '_corr.fits' file with column names:
+    field_ra, field_dec, field_x, field_y
     """
 
     nanvals = ('99.999', '1000.000', '1000', 'INDEF')
@@ -122,8 +126,13 @@ def astronetRead(astro_cross):
     """
 
     # astrometry.net cross-matched data
-    hdul = fits.open(astro_cross)
-    cr_m_data = hdul[1].data
+    try:
+        hdul = fits.open(astro_cross)
+        cr_m_data = hdul[1].data
+    except IOError:
+        # In case the file is not a real 'fits', but a text file with stars
+        # manually matched, with an added 'fits' extension.
+        cr_m_data = Table.read(astro_cross, format='ascii')
 
     return cr_m_data
 
