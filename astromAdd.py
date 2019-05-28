@@ -214,9 +214,9 @@ def px2Eq(x_p, y_p, cr_m_data):
     x2ra = curve_fit(func, (x, y), ra, p0)[0]
     y2de = curve_fit(func, (x, y), dec, p0)[0]
 
-    print(("X  = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy +"
+    print(("ra   = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy +"
            " {:.7f} * x^2 + {:.7f} * y^2 +").format(*x2ra))
-    print(("Y = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy + "
+    print(("dec = {:.7f} + {:.7f} * x + {:.7f} * y + {:.7f} * xy + "
            "{:.7f} * x^2 + {:.7f} * y^2 +").format(*y2de))
 
     # Transform pixel (x,y) coordinates into the (ra,dec) system
