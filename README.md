@@ -5,8 +5,10 @@ Takes an input data file with (x,y) coordinates and assigns (alpha, delta)
 astrometry, given a `*_corr.fits` file previously obtained from the
 [astrometry.net](http://nova.astrometry.net/) service.
 
+The algorithm used to transform `(x,y)-->(ra,dec)` is the one [developed by Jarno Elonen](https://elonen.iki.fi/code/misc-notes/affine-fit/), based on the article [Fitting affine and orthogonal transformations between two sets of points](https://hrcak.srce.hr/712), H. Späth (2004).
+
 It can also work with a list of stars manually cross-matched and stored
-in a '_corr.fits' file with column names:
+in a `*_corr.fits` file with column names:
 
     field_ra, field_dec, field_x, field_y
 
