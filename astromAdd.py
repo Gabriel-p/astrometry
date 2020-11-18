@@ -45,15 +45,17 @@ def main():
         print("\nProcessing: {}".format(cl_name))
         # Read cluster photometry.
         phot, x_p, y_p, Vmag = photRead(clust_file, nanvals, col_IDs)
+        print("Stars read from input file: {}".format(len(x_p)))
 
         if astrom_gen is True:
             # astrometry.net file
             astrometryFeed(cl_name, x_p, y_p, Vmag, regs_filt, col_IDs)
             print("astrometry.net file generated.")
-            break
+            continue
 
         # Read astrometry.net correlated coordinates.
         cr_m_data = astronetRead(clust_file[:-4] + '_corr.fits')
+        print("Stars read from corr.fits file: {}".format(len(cr_m_data)))
 
         # Cross-matched coordinates
         ra, dec = cr_m_data['field_ra'], cr_m_data['field_dec']
@@ -90,7 +92,7 @@ def params_input():
     """
     with open('params_input.dat', "r") as f_dat:
         # Iterate through each line in the file.
-        for l, line in enumerate(f_dat):
+        for line in f_dat:
             if not line.startswith("#") and line.strip() != '':
                 reader = line.split()
                 if reader[0] == 'CI':
@@ -105,7 +107,7 @@ def params_input():
 
 
 def get_files(astrom_gen):
-    '''
+    """
     Store the paths and names of all the input clusters stored in the
     input folder.
 
@@ -115,7 +117,7 @@ def get_files(astrom_gen):
     - cluster_corr.fits
 
     where 'cluster' is the cluster's name, and 'xyz' is any extension.
-    '''
+    """
 
     cl_files = []
     for f in listdir('in/'):
@@ -463,14 +465,14 @@ def makePlot(
 
     plt.subplot(gs[0])
     plt.title("Cross-matched (x, y)")
-    plt.scatter(x, y, s=2. * star_size(Vmag))
+    plt.scatter(x, y, s=20.) # * star_size(Vmag))
     plt.grid(which='major', axis='both', linestyle='--', color='grey', lw=.5)
     plt.xlabel('x')
     plt.ylabel('y')
 
     plt.subplot(gs[1])
     plt.title("Cross-matched (ra, dec)")
-    plt.scatter(-ra, dec, s=2. * star_size(Vmag), c='r')
+    plt.scatter(-ra, dec, s=20.) # * star_size(Vmag), c='r')
     plt.grid(which='major', axis='both', linestyle='--', color='grey', lw=.5)
     plt.xlabel(r'$\alpha$')
     plt.ylabel(r'$\delta$')
@@ -504,11 +506,11 @@ def makePlot(
         "Cross-matched & transformed (x, y) overlayed on (ra, dec)",
         fontsize=10)
     plt.scatter(
-        -ra_x, dec_y, s=4. * star_size(Vmag), c='b', marker='+', lw=.75,
+        -ra_x, dec_y, s=40., c='b', marker='+', lw=.75,
         label="(x, y)")
     plt.grid(which='major', axis='both', linestyle='--', color='grey', lw=.5)
     plt.scatter(
-        -ra, dec, s=4. * star_size(Vmag), c='r', marker='x', lw=.75,
+        -ra, dec, s=40., c='r', marker='x', lw=.75,
         label=r"($\alpha,\,\delta$)")
     plt.xlabel(r'$\alpha$')
     plt.ylabel(r'$\delta$')
@@ -520,10 +522,10 @@ def makePlot(
 
 
 def star_size(mag, N=None, min_m=None):
-    '''
+    """
     Convert magnitudes into intensities and define sizes of stars in
     finding chart.
-    '''
+    """
     # Scale factor.
     if N is None:
         N = len(mag)

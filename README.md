@@ -16,6 +16,11 @@ It can also generate the file needed to feed the `astrometry.net` service.
 
 ![alt text](out.png)
 
+The `astrometry.net` takes its coordinated from the [USNO-B catalog](http://tdc-www.harvard.edu/catalogs/ub1.html) which:
+
+> ...is believed to provide all-sky coverage, completeness down to V = 21, 0.2 arcsecond astrometric accuracy at **J2000**
+
+
 ## Requirements
 
     Python 3, astropy, numpy scipy, matplotlib
