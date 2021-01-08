@@ -5,6 +5,7 @@ from os import makedirs
 from os import listdir
 from os.path import isfile, join
 from pathlib import Path
+import configparser
 
 from astropy.io import ascii
 from astropy.io import fits
@@ -88,21 +89,20 @@ def main():
 
 def params_input():
     """
-    Read input parameters from 'params_input.dat' file.
+    Read .ini config file
     """
-    with open('params_input.dat', "r") as f_dat:
-        # Iterate through each line in the file.
-        for line in f_dat:
-            if not line.startswith("#") and line.strip() != '':
-                reader = line.split()
-                if reader[0] == 'CI':
-                    col_IDs = reader[1:]
-                if reader[0] == 'AT':
-                    astrom_gen = True if reader[1] == 'True' else False
-                    regs_filt = list(map(float, reader[2:]))
-                if reader[0] == 'NN':
-                    nanvals = reader[1:]
+    in_params = configparser.ConfigParser()
+    in_params.read('params.ini')
 
+    astro_feed = in_params['Astrometry Feed']
+    astrom_gen = astro_feed.getboolean('generate')
+    regs_filt = list(map(float, astro_feed['region'].split()))
+
+    data_columns = in_params['Data columns']
+    x, y = data_columns['xy'].split()
+    col_IDs = (data_columns['ID'], x, y, data_columns['mag'])
+
+    nanvals = ('99.999', '1000.000', 'INDEF', 'nan', '--', 'NaN')
     return col_IDs, astrom_gen, regs_filt, nanvals
 
 
@@ -122,8 +122,8 @@ def get_files(astrom_gen):
     cl_files = []
     for f in listdir('in/'):
         # Don't store '*corr.fits' files
-        if isfile(join('in/', f)) and not f.endswith('.fits'):
-
+        if isfile(join('in/', f)) and not f.endswith('.fits') and not\
+                f == 'README.md':
             if astrom_gen is False:
                 # But check that they do exist in the folder
                 if isfile(join('in/', f[:-4] + '_corr.fits')):
@@ -132,12 +132,6 @@ def get_files(astrom_gen):
                     sys.exit("Missing '*corr.fits' file for {}".format(f))
             else:
                 cl_files.append(join('in/', f))
-
-    # Remove readme file it is still there.
-    try:
-        cl_files.remove('in/README.md')
-    except ValueError:
-        pass
 
     return cl_files
 
